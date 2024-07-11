@@ -3,7 +3,7 @@ This is a utility to regularly download today's issue of the [NZZ newspaper](htt
 
 It uses [Selenium](https://www.selenium.dev/) to start a Chrome-Browser instance, navigates to 
 [https://https://epaper.nzz.ch/storefront/6](https://epaper.nzz.ch/storefront/6) and then 
-selects the PDF version to be downloaded (unless tjhat issue is already present in the target folder).
+selects the PDF version to be downloaded (unless that issue is already present in the target folder).
 
 Thus, running this daily will make sure that you have all issues of NZZ downloaded to your destination folder 
 in PDF format for your reading pleasure.
@@ -17,8 +17,8 @@ See the `downloadNZZ.cmd`-file for an example how to run this via a Windows comm
 
 ```
 usage: Download_CT
- -u,--username <arg>          user-id for login to Heise Media [required]
- -p,--password <arg>          password for login to Heise Media [required]
+ -u,--username <arg>          user-id for login to NZZ wensite [required]
+ -p,--password <arg>          password for login to NZZ wensite [required]
  -d,--download-folder <arg>   download-folder  [optional - default: %HOME%\downloads-folder will be used]
  -t,--target-folder <arg>     target-folder [optional - default: leave file in the download-folder (above)]
 ```
