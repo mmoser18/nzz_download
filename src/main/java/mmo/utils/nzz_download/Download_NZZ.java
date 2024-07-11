@@ -275,8 +275,8 @@ public class Download_NZZ
 	
 	private static Options createOptions() {
 		final Options options = new Options();
-		options.addOption(new Option("u", "username", true, "user-id for login to Heise Media [required]"));
-		options.addOption(new Option("p", "password", true, "password for login to Heise Media [required]"));
+		options.addOption(new Option("u", "username", true, "user-id for login to NZZ website [required]"));
+		options.addOption(new Option("p", "password", true, "password for login to NZZ website [required]"));
 		options.addOption(new Option("d", "download-folder", true, "download-folder [optional - default: '" + DefaultDownloadPath + "']"));
 		options.addOption(new Option("t", "target-folder", true, "target-folder [optional - default: same as download-folder]"));
 		return options;
