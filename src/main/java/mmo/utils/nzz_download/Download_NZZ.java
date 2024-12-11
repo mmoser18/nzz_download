@@ -94,13 +94,13 @@ public class Download_NZZ
 //			log.info("Clicking '{}'", dontAllowButton.getText());
 //			dontAllowButton.click();
 //		}	
-		WebElement datenSchutzBlaBla = waitForAppearance(By.className("cmpboxWelcomeGDPR"), 2);
+		WebElement datenSchutzBlaBla = waitForAppearance("cmpboxWelcomeGDPR", 2);
 		if (datenSchutzBlaBla != null) {
-			WebElement einstellungen = waitForAppearance(By.className("cmptxt_btn_settings"), 1);
+			WebElement einstellungen = waitForAppearance("cmptxt_btn_settings", 1);
 			if (einstellungen != null) {
 				log.info("Clicking '{}'", einstellungen.getText());
 				einstellungen.click();
-				WebElement speichernUndBeenden = waitForAppearance(By.className("cmptxt_btn_save"), 1);
+				WebElement speichernUndBeenden = waitForAppearance("cmptxt_btn_save", 1);
 				if (speichernUndBeenden != null) {
 					log.info("Clicking '{}'", speichernUndBeenden.getText());
 					speichernUndBeenden.click();
@@ -112,7 +112,7 @@ public class Download_NZZ
 	}
 	
 	void login() throws Exception {
-		WebElement loginButton = waitForAppearance(By.className("fup-login"), 3);
+		WebElement loginButton = waitForAppearance("fup-login", 3);
 		log.debug("loginButton=" + loginButton);
 		if (loginButton!= null && loginButton.isDisplayed()) { // we are not logged-in, yet.
 			log.info("\"Anmelden\" is displayed - logging in:");
@@ -255,7 +255,7 @@ public class Download_NZZ
 			downloadFile.delete();
 		}
 		
-		WebElement downloadButton = waitForAppearance(By.className("fup-s-storefront-download-confirmation"), 5);
+		WebElement downloadButton = waitForAppearance("fup-s-storefront-download-confirmation", 5);
 		if (downloadButton != null) {
 			log.info("Clicking '{}'", downloadButton.getText());
 			downloadButton.click(); // Note: this immediately starts downloading the file to the download folder (i.e. without asking for a destination where to save it)!
