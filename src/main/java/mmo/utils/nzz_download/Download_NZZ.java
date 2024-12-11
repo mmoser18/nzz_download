@@ -7,6 +7,7 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -15,9 +16,13 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.WindowType;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+
 
 
 @Slf4j
@@ -25,16 +30,19 @@ import org.openqa.selenium.chrome.ChromeDriver;
 public class Download_NZZ
 {
 	private final static String baseUrl = "https://epaper.nzz.ch/storefront/6";
-	private static final String IssueFileName = "Gesamtausgabe_Neue_Zürcher_Zeitung_%s.pdf"; // %s: Datum in <DateFormat>
-	private static final String DateFormat = "yyyy-MM-dd";
-	private final static int DownloadMaxWait = 15; // [seconds] max. completion wait time before a download is considered failed
+	private final static String IssueFileName = "Gesamtausgabe_Neue_Zürcher_Zeitung_%s.pdf"; // %s: Datum in <DateFormat>
+	private final static String DateFormat = "yyyy-MM-dd";
+	private final static int DownloadMaxWait = 60; // [seconds] max. completion wait time before a download is considered failed
 	private final static int AppearanceDefaultWait = 5; // [seconds]
 	private final static String DefaultDownloadPath = (System.getProperty("os.name").startsWith("Windows") 
 	                                                  ? System.getProperty("user.home", "U:") // assuming "U:" points to user's home directory
 	                                                  : "~") // for *ix and Mac
 	                                                  + File.separator + "downloads";
 
-	private String downloadPath = DefaultDownloadPath;
+	private final static String TempDirName = "NZZ_Downloads";
+	private final static String DownloadDirPath = DefaultDownloadPath + File.separator + TempDirName;
+	
+	private String downloadPath = DownloadDirPath;
 	private String targetPath;
 	private String usr;
 	private String pwd;
@@ -44,20 +52,39 @@ public class Download_NZZ
 	@SuppressWarnings("removal")
 	@Override
 	protected void finalize() throws Throwable {
-		
 		closeBrowser();
 		super.finalize();
 	}
 	
-	void setUpBrowser() {
+	void setUpBrowser() throws Exception {
 		log.info("setUpBrowser.");
-		// Initialize ChromeDriver.
-		driver = new ChromeDriver();
 
-		// Maximize the browser window size.
-		// driver.manage().window().maximize();
+		// prepare download location:
+		final File file = new File(DownloadDirPath);
+		if (!file.exists()) {
+			if (!file.mkdirs()) {
+				throw new Exception("Not able to create temp. download directory '" + DownloadDirPath + "'");				
+			}
+		}
+		if (!file.isDirectory() || !file.canRead()) {
+			throw new Exception("Temp. download directory '" + DownloadDirPath + "' is not a directory or not readable.");							
+		}
+		file.deleteOnExit();
+		
+		// Initialize ChromeDriver:
+		ChromeOptions chromeOptions = new ChromeOptions();
+		// found this "https://medium.com/@akshayshinde7289/how-to-download-pdf-file-in-chrome-using-selenium-6a717ced483b"
+		// to disable the built-in PDF previewer:
+		HashMap<String, Object> chromeOptionsMap = new HashMap<String, Object>();
+		chromeOptionsMap.put("download.default_directory", DownloadDirPath);
+		chromeOptionsMap.put("plugins.plugins_disabled", new String[] { "Chrome PDF Viewer" });
+		chromeOptionsMap.put("plugins.always_open_pdf_externally", true);
+		chromeOptions.setExperimentalOption("prefs", chromeOptionsMap);
+		// chromeOptions.addArguments("--remote-allow-origins=*");
+		driver = new ChromeDriver(chromeOptions);
 
 		// Navigate to the website.
+		log.info("navigating to '" + baseUrl + "':");
 		driver.get(baseUrl);
 	}
 	
@@ -67,23 +94,25 @@ public class Download_NZZ
 //			log.info("Clicking '{}'", dontAllowButton.getText());
 //			dontAllowButton.click();
 //		}	
-		WebElement datenSchutzBlaBla = waitForApearance(By.className("cmpboxWelcomeGDPR"), 2);
+		WebElement datenSchutzBlaBla = waitForAppearance(By.className("cmpboxWelcomeGDPR"), 2);
 		if (datenSchutzBlaBla != null) {
-			WebElement einstellungen = waitForApearance(By.className("cmptxt_btn_settings"), 1);
+			WebElement einstellungen = waitForAppearance(By.className("cmptxt_btn_settings"), 1);
 			if (einstellungen != null) {
 				log.info("Clicking '{}'", einstellungen.getText());
 				einstellungen.click();
-				WebElement speichernUndBeenden = waitForApearance(By.className("cmptxt_btn_save"), 1);
+				WebElement speichernUndBeenden = waitForAppearance(By.className("cmptxt_btn_save"), 1);
 				if (speichernUndBeenden != null) {
 					log.info("Clicking '{}'", speichernUndBeenden.getText());
 					speichernUndBeenden.click();
 				}
 			}
-		}		
+		} else {
+			log.info("No data protection nuissance detected.");			
+		}
 	}
 	
 	void login() throws Exception {
-		WebElement loginButton = waitForApearance(By.className("fup-login"), 3);
+		WebElement loginButton = waitForAppearance(By.className("fup-login"), 3);
 		log.debug("loginButton=" + loginButton);
 		if (loginButton!= null && loginButton.isDisplayed()) { // we are not logged-in, yet.
 			log.info("\"Anmelden\" is displayed - logging in:");
@@ -138,37 +167,104 @@ public class Download_NZZ
 		driver.switchTo().defaultContent();
 	}
 
+	/*
+	 * Newly the download file gets some random names which we first need to figure out.
+	 * Found here: https://stackoverflow.com/questions/34548041/selenium-give-file-name-when-downloading
+	 */
+	void waitUntilDownloadCompletes(final File downloadFile) throws Exception {
+		log.info("downloading to '{}':", downloadFile);
+		// Store the current window handle
+		final String mainWindow = driver.getWindowHandle();   
+		log.trace("currently on: title: '{}' / handle: '{}'", driver.getTitle(), driver.getWindowHandle());
+		
+		try {
+			log.trace("handles are: '{}'", driver.getWindowHandles());
+			// open a new tab:
+			driver.switchTo().newWindow(WindowType.TAB);
+			int nrAttempts = 0;
+			while (driver.getWindowHandles().size() < 2) {
+				if (++nrAttempts > 3) {
+					throw new Exception(String.format("Opening of new Tab did not complete in '%d' seconds - aborted.", nrAttempts));								
+				}
+			}
+			log.trace("handles2 are: '{}'", driver.getWindowHandles());
+			driver.switchTo().window((String)driver.getWindowHandles().toArray()[1]);
+			log.trace("currently on: title: '{}' / handle: '{}'", driver.getTitle(), driver.getWindowHandle());
+
+			// navigate to chrome downloads in that new tab:
+			driver.get("chrome://downloads");
+			
+			JavascriptExecutor js = (JavascriptExecutor)driver;
+			// wait until the file is downloaded:
+			final String baseQuery = "return document.querySelector('downloads-manager').shadowRoot.querySelector('#downloadsList downloads-item')";
+			final String query = baseQuery + ".shadowRoot.querySelector('div#content #file-link')";
+			try {
+				// get the latest downloaded file's name:
+				nrAttempts = 0;
+				String fileName = null;
+				while (++nrAttempts < DownloadMaxWait) {
+					try {
+						fileName = (String)js.executeScript(query + ".text"); // get the latest downloaded file's name
+						if (fileName != null) break;
+					} catch (Exception ex) {
+						if (!ex.getMessage().contains("Cannot read properties of null (reading 'shadowRoot')")) { // this one is expected while the download is not complete, yet 
+							log.info("Exception {}: {}", ex.getClass(), ex.getMessage());
+						}
+					}
+					log.info("waiting ({})...", nrAttempts);			
+					Thread.sleep(1000);
+				}
+				log.trace("filename: '" + fileName + "'");
+				// String downloadURL = (String)js.executeScript(query + ".href"); // get the latest downloaded file's URL
+				// log.trace("download URL: '" + downloadURL + "'");
+				if (fileName == null || fileName.isBlank()) {
+					throw new Exception("Download of PDF-file failed.");
+				}
+				
+				// rename the downloaded file, i.e. give it back a reasonable, speaking name:
+				final String fullDownloadFileName = DownloadDirPath + File.separator + fileName;
+				final File downloadedFile = new File(fullDownloadFileName);
+				if (!downloadedFile.exists() || !downloadedFile.canRead()) {
+					throw new Exception("Expected a readable file '" + downloadedFile.getAbsolutePath() + "' but didn't find such!?");
+				}
+				log.info("downloaded '{}':", downloadedFile.getAbsolutePath());	
+				downloadFile.delete(); // just in case it exists from an earlier but failed run...
+				downloadedFile.renameTo(downloadFile);
+				log.info("renamed as '{}':", downloadFile.getAbsolutePath());			
+				
+			} catch (Exception ex) {
+				log.info("Exception " + ex.getMessage());
+				throw ex;
+			}
+		// we don't catch any exception - rather the program will terminate 
+		} finally {
+			// close the downloads tab2
+			driver.close();
+			// switch back to main window
+			driver.switchTo().window(mainWindow);
+		}
+	}
+	
 	void downloadEPaper() throws Exception {
 		String issueName = String.format(IssueFileName, new SimpleDateFormat(DateFormat).format(Date.from(Instant.now())));
 		log.info("looking for issue: '" + issueName + "'");
 		
-		String downloadFullPath = downloadPath + (downloadPath.endsWith(File.separator) ? "" : File.separator) + issueName;
-		File downloadFile = new File(downloadFullPath);
+		String issueFullName = downloadPath + (downloadPath.endsWith(File.separator) ? "" : File.separator) + issueName;
+		File downloadFile = new File(issueFullName);
 		if (downloadFile.exists()) {
 			downloadFile.delete();
 		}
 		
-		WebElement downloadButton = waitForApearance(By.className("fup-s-storefront-download-confirmation"), 5);
+		WebElement downloadButton = waitForAppearance(By.className("fup-s-storefront-download-confirmation"), 5);
 		if (downloadButton != null) {
 			log.info("Clicking '{}'", downloadButton.getText());
 			downloadButton.click(); // Note: this immediately starts downloading the file to the download folder (i.e. without asking for a destination where to save it)!
-			log.info("downloading to '{}':", downloadFile);
 		} else {
 			throw new Exception("download-button not found");			
 		}
 		
-		// wait until download completes:
-		int nrWaits = 0;
-		while (!downloadFile.exists() && !downloadFile.canRead() && nrWaits <= DownloadMaxWait) {
-			log.info("waiting for download of '{}' to complete ({}):", downloadFile, nrWaits++);
-			Thread.sleep(1000);
-		}
-		if (nrWaits > DownloadMaxWait) {
-			throw new Exception(String.format("Download  did not complete in '%d' seconds - aborted.", nrWaits));			
-		} else {
-			log.info("found '{}':", downloadFile.getAbsolutePath());			
-		}
-
+		waitUntilDownloadCompletes(downloadFile);
+		
 		if (downloadFile.exists() && downloadFile.canRead()) {
 			if (targetPath == null || targetPath.equals(downloadPath)) {
 				log.debug("Downloaded file is already in target folder.");
@@ -202,26 +298,31 @@ public class Download_NZZ
 	void closeBrowser() {
 		log.info("closeBrowser.");
 		if (driver != null) { // terminate the browser.
-//			driver.quit();
+			try {
+				driver.quit();
+			} catch (Exception ex) {
+				log.error("quitting driver threw an exception: " + ex.getMessage());
+				// ignore - we were only trying to gracefully shut down anyway...
+			}
 			driver = null;
 		}
 	}
 	
-	WebElement waitForApearance(String className) throws Exception {
-		return waitForApearance(className, AppearanceDefaultWait);
+	WebElement waitForAppearance(String className) throws Exception {
+		return waitForAppearance(className, AppearanceDefaultWait);
 	}
-	WebElement waitForApearance(String className, int waitMaxSeconds) throws Exception {
-		return waitForApearance(By.className(className), waitMaxSeconds);
+	WebElement waitForAppearance(String className, int waitMaxSeconds) throws Exception {
+		return waitForAppearance(By.className(className), waitMaxSeconds);
 	}
 	
-	WebElement waitForApearance(By by, int waitMaxSeconds) throws Exception {
+	WebElement waitForAppearance(By by, int waitMaxSeconds) throws Exception {
 		log.info("waiting for appearance of element '{}'", by);	
 		List<WebElement> elems = null;
 		WebElement expectedElem = null;
 		int nrAttempts = 0;
 		do {
 			elems = driver.findElements(by);
-			if (elems.size() > 0 && (expectedElem = elems.getFirst()).isDisplayed() && expectedElem.isEnabled()) {
+			if (elems.size() > 0 && (expectedElem = elems.getFirst()).isDisplayed()/* && expectedElem.isEnabled()*/) {
 				break;
 			}
 			if (nrAttempts++ >= waitMaxSeconds) {
@@ -277,7 +378,7 @@ public class Download_NZZ
 		final Options options = new Options();
 		options.addOption(new Option("u", "username", true, "user-id for login to NZZ website [required]"));
 		options.addOption(new Option("p", "password", true, "password for login to NZZ website [required]"));
-		options.addOption(new Option("d", "download-folder", true, "download-folder [optional - default: '" + DefaultDownloadPath + "']"));
+		options.addOption(new Option("d", "download-folder", true, "download-folder [optional - default: '" + DownloadDirPath + "']"));
 		options.addOption(new Option("t", "target-folder", true, "target-folder [optional - default: same as download-folder]"));
 		return options;
 	}	

@@ -6,7 +6,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>mmo.utils.selenium_scripts</groupId>
 	<artifactId>nzz_download</artifactId>
-	<version>1.0.0</version>
+	<version>1.3.0</version>
 	<name>nzz_download</name>
 	<packaging>jar</packaging>
 	
@@ -16,7 +16,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<slf4j.version>2.0.13</slf4j.version>
 		<log4j2-version>2.23.1</log4j2-version>
-		<selenium-version>4.21.0</selenium-version>
+		<selenium-version>4.27.0</selenium-version>
 	</properties>
 
 	<dependencies>

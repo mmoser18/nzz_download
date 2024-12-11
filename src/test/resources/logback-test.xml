@@ -22,7 +22,4 @@
         <appender-ref ref="STDOUT" />
         <appender-ref ref="FILE" />
     </root>
-<!-- 
-    <logger level="DEBUG" name="com.myapp"/>
- -->
 </configuration>
