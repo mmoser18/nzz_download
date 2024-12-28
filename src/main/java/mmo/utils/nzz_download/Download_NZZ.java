@@ -224,7 +224,16 @@ public class Download_NZZ
 				// rename the downloaded file, i.e. give it back a reasonable, speaking name:
 				final String fullDownloadFileName = DownloadDirPath + File.separator + fileName;
 				final File downloadedFile = new File(fullDownloadFileName);
-				if (!downloadedFile.exists() || !downloadedFile.canRead()) {
+
+				nrAttempts = 0;
+				while (++nrAttempts < DownloadMaxWait) {
+					if (downloadedFile.exists() && downloadedFile.canRead()) {
+						break;
+					}
+					log.info("waiting ({})...", nrAttempts);			
+					Thread.sleep(1000);
+				}
+				if (nrAttempts >= DownloadMaxWait) {
 					throw new Exception("Expected a readable file '" + downloadedFile.getAbsolutePath() + "' but didn't find such!?");
 				}
 				log.info("downloaded '{}':", downloadedFile.getAbsolutePath());	
