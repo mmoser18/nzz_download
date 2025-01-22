@@ -1,3 +1,6 @@
+rem Copyright © 2024-2025 by Michael Moser / 17732576+mmoser18@users.noreply.github.com
+rem Released under GPL V3 or later
+
 echo running NZZ downloader:
 rem program executable location:
 set loc=%HOME%\Documents\eclipse\workspace\nzz_download\target\

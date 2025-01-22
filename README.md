@@ -8,6 +8,8 @@ selects the PDF version to be downloaded (unless that issue is already present i
 Thus, running this daily will make sure that you have all issues of NZZ downloaded to your destination folder 
 in PDF format for your reading pleasure.
 
+Copyright © 2024-2025 by Michael Moser / 17732576+mmoser18@users.noreply.github.com
+
 ## Setup:
 The basic command-line is 
 `java -jar <jar-file> -u <userId> -p <password> <further options here...>`
