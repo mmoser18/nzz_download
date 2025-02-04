@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
@@ -29,6 +30,8 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.WindowType;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
 
 
@@ -44,7 +47,7 @@ public class Download_NZZ
 	private final static String DefaultDownloadPath = (System.getProperty("os.name").startsWith("Windows") 
 	                                                  ? System.getProperty("user.home", "U:") // assuming "U:" points to user's home directory
 	                                                  : "~") // for *ix and Mac
-	                                                  + File.separator + "downloads";
+	                                                  + File.separator + "Downloads";
 
 	private final static String TempDirName = "NZZ_Downloads";
 	private final static String DownloadDirPath = DefaultDownloadPath + File.separator + TempDirName;
@@ -53,6 +56,7 @@ public class Download_NZZ
 	private String targetPath;
 	private String usr;
 	private String pwd;
+	private boolean debug;
 	
 	private WebDriver driver;
 	
@@ -76,7 +80,7 @@ public class Download_NZZ
 		if (!file.isDirectory() || !file.canRead()) {
 			throw new Exception("Temp. download directory '" + DownloadDirPath + "' is not a directory or not readable.");							
 		}
-		file.deleteOnExit();
+		if (!debug) file.deleteOnExit();
 		
 		// Initialize ChromeDriver:
 		ChromeOptions chromeOptions = new ChromeOptions();
@@ -156,12 +160,13 @@ public class Download_NZZ
 					throw new Exception("Anmelden-button not found");
 				}
 				// filling out the login form:
+				Thread.sleep(250); // had to introduce this since the page reacted slowly and swallowed some of the entry...
 				log.info("entering user-id: '{}'", usr);
-				loginUsr.sendKeys(usr);
-				Thread.sleep(500); // had to introduce this since the page reacted slowly and swallowed some of the entry...
+				typeSlowly(loginUsr, usr); // the input was only partially accepted when typing full speed... ||-(
+				Thread.sleep(250); // had to introduce this since the page reacted slowly and swallowed some of the entry...
 				log.info("entering password: '{}'", pwd);
-				loginPwd .sendKeys(pwd);
-				Thread.sleep(500);
+				typeSlowly(loginPwd, pwd); // the input was only partially accepted when typing full speed... ||-(
+				Thread.sleep(250);
 				log.info("clicking '{}':", anmeldenButton);
 				anmeldenButton.click();	
 				log.info("we should be logged-in now...");
@@ -174,6 +179,18 @@ public class Download_NZZ
 		driver.switchTo().defaultContent();
 	}
 
+	/**
+	 * Had to introduce this since some input fields constantly swallowed characters when typing full speed... ||-(
+	 */
+	void typeSlowly(final WebElement inputField, final String textToType) throws InterruptedException {
+		for (int i = 0; i < textToType.length(); i++) {
+			final StringBuffer sb = new StringBuffer();
+			sb.append(textToType.charAt(i));
+			inputField.sendKeys(sb.toString());
+			Thread.sleep(10);
+		}
+	}
+	
 	/*
 	 * Newly the download file gets some random names which we first need to figure out.
 	 * Found here: https://stackoverflow.com/questions/34548041/selenium-give-file-name-when-downloading
@@ -221,7 +238,7 @@ public class Download_NZZ
 					log.info("waiting ({})...", nrAttempts);			
 					Thread.sleep(1000);
 				}
-				log.trace("filename: '" + fileName + "'");
+				log.info("downloaded file: '" + fileName + "'");
 				// String downloadURL = (String)js.executeScript(query + ".href"); // get the latest downloaded file's URL
 				// log.trace("download URL: '" + downloadURL + "'");
 				if (fileName == null || fileName.isBlank()) {
@@ -237,17 +254,21 @@ public class Download_NZZ
 					if (downloadedFile.exists() && downloadedFile.canRead()) {
 						break;
 					}
-					log.info("waiting ({})...", nrAttempts);			
+					log.info("waiting for '{}' ({})...", fullDownloadFileName, nrAttempts);			
 					Thread.sleep(1000);
 				}
 				if (nrAttempts >= DownloadMaxWait) {
 					throw new Exception("Expected a readable file '" + downloadedFile.getAbsolutePath() + "' but didn't find such!?");
 				}
 				log.info("downloaded '{}':", downloadedFile.getAbsolutePath());	
-				downloadFile.delete(); // just in case it exists from an earlier but failed run...
-				downloadedFile.renameTo(downloadFile);
-				log.info("renamed as '{}':", downloadFile.getAbsolutePath());			
-				
+				if (!downloadFile.getAbsolutePath().equals(downloadedFile.getAbsolutePath())) {				
+					if (downloadFile.exists()) { // just in case it exists from an earlier but failed runs
+						log.info("deleting '{}':", downloadFile);
+						downloadFile.delete();
+					}
+					log.info("renaming '{}' to '{}':", downloadedFile.getAbsolutePath(), downloadFile);						
+					downloadedFile.renameTo(downloadFile);
+				}
 			} catch (Exception ex) {
 				log.info("Exception " + ex.getMessage());
 				throw ex;
@@ -270,9 +291,12 @@ public class Download_NZZ
 		if (downloadFile.exists()) {
 			downloadFile.delete();
 		}
-		
-		WebElement downloadButton = waitForAppearance("fup-s-storefront-download-confirmation", 5);
-		if (downloadButton != null) {
+		// it often takes forever and a day until the login-panel has disappeared
+		Thread.sleep(5000);
+		WebElement downloadButton = waitForAppearance("download", 30);
+		if (downloadButton != null) {		
+			Thread.sleep(5000); // it typically takes several seconds until that button gets visible and active:
+			new WebDriverWait(driver, Duration.ofSeconds(30)).until(ExpectedConditions.elementToBeClickable(downloadButton));
 			log.info("Clicking '{}'", downloadButton.getText());
 			downloadButton.click(); // Note: this immediately starts downloading the file to the download folder (i.e. without asking for a destination where to save it)!
 		} else {
@@ -288,7 +312,7 @@ public class Download_NZZ
 				log.info("target path is: '{}'", targetPath);				
 				String targetFullPath = targetPath + (targetPath.endsWith(File.separator) ? "" : File.separator) + issueName;
 				File targetFile = new File(targetFullPath);
-				log.info("full path is: '{}'", targetFullPath);	
+				log.info("full target name is: '{}'", targetFullPath);	
 				// if target exists already: delete it:
 				if (targetFile.exists()) {
 					log.info("deleting prior existing file '{}':", targetFile);
@@ -315,7 +339,7 @@ public class Download_NZZ
 		log.info("closeBrowser.");
 		if (driver != null) { // terminate the browser.
 			try {
-				driver.quit();
+				if (!debug) driver.quit();
 			} catch (Exception ex) {
 				log.error("quitting driver threw an exception: " + ex.getMessage());
 				// ignore - we were only trying to gracefully shut down anyway...
@@ -353,7 +377,7 @@ public class Download_NZZ
 
 	private void processCommandLine(CommandLine line, Options options) throws Exception {
 		for (Option opt: line.getOptions()) {
-			log.debug("option {}: '{}'", (char)opt.getId(), opt.getValue());
+			log.info("option {}: '{}'", (char)opt.getId(), opt.getValue());
 			switch (opt.getId()) {
 			case 'd':
 				this.downloadPath = opt.getValue().replace('/', File.separatorChar);
@@ -372,6 +396,9 @@ public class Download_NZZ
 				break;
 			case 'p':
 				this.pwd = opt.getValue();
+				break;
+			case 'x':
+				this.debug = !this.debug;
 				break;
 			default:
 				log.error("Unexpected option: '{}' - ignored.");
@@ -396,6 +423,7 @@ public class Download_NZZ
 		options.addOption(new Option("p", "password", true, "password for login to NZZ website [required]"));
 		options.addOption(new Option("d", "download-folder", true, "download-folder [optional - default: '" + DownloadDirPath + "']"));
 		options.addOption(new Option("t", "target-folder", true, "target-folder [optional - default: same as download-folder]"));
+		options.addOption(new Option("x", "debug", true, "toggle debug mode (do not delete temp. files at exit, etc.)"));
 		return options;
 	}	
 
