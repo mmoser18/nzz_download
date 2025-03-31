@@ -11,6 +11,7 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -245,7 +246,6 @@ public class Download_NZZ
 					throw new Exception("Download of PDF-file failed.");
 				}
 				
-				// rename the downloaded file, i.e. give it back a reasonable, speaking name:
 				final String fullDownloadFileName = DownloadDirPath + File.separator + fileName;
 				final File downloadedFile = new File(fullDownloadFileName);
 
@@ -261,14 +261,17 @@ public class Download_NZZ
 					throw new Exception("Expected a readable file '" + downloadedFile.getAbsolutePath() + "' but didn't find such!?");
 				}
 				log.info("downloaded '{}':", downloadedFile.getAbsolutePath());	
-				if (!downloadFile.getAbsolutePath().equals(downloadedFile.getAbsolutePath())) {				
-					if (downloadFile.exists()) { // just in case it exists from an earlier but failed runs
-						log.info("deleting '{}':", downloadFile);
-						downloadFile.delete();
-					}
-					log.info("renaming '{}' to '{}':", downloadedFile.getAbsolutePath(), downloadFile);						
-					downloadedFile.renameTo(downloadFile);
-				}
+				
+// oddly the names are now correct again (for some time they were numeric monsters simmilar to UUIDs). 
+//				// rename the downloaded file, i.e. give it back a reasonable, speaking name:
+//				if (!downloadFile.getAbsolutePath().equals(downloadedFile.getAbsolutePath())) {				
+//					if (downloadFile.exists()) { // just in case it exists from an earlier but failed runs
+//						log.info("deleting '{}':", downloadFile);
+//						downloadFile.delete();
+//					}
+//					log.info("renaming '{}' to '{}':", downloadedFile.getAbsolutePath(), downloadFile);						
+//					downloadedFile.renameTo(downloadFile);
+//				}
 			} catch (Exception ex) {
 				log.info("Exception " + ex.getMessage());
 				throw ex;
@@ -283,58 +286,69 @@ public class Download_NZZ
 	}
 	
 	void downloadEPaper() throws Exception {
-		String issueName = String.format(IssueFileName, new SimpleDateFormat(DateFormat).format(Date.from(Instant.now())));
-		log.info("looking for issue: '" + issueName + "'");
-		
-		String issueFullName = downloadPath + (downloadPath.endsWith(File.separator) ? "" : File.separator) + issueName;
-		File downloadFile = new File(issueFullName);
-		if (downloadFile.exists()) {
-			downloadFile.delete();
-		}
-		// it often takes forever and a day until the login-panel has disappeared
-		Thread.sleep(5000);
-		WebElement downloadButton = waitForAppearance("download", 30);
-		if (downloadButton != null) {		
-			Thread.sleep(5000); // it typically takes several seconds until that button gets visible and active:
-			new WebDriverWait(driver, Duration.ofSeconds(30)).until(ExpectedConditions.elementToBeClickable(downloadButton));
-			log.info("Clicking '{}'", downloadButton.getText());
-			downloadButton.click(); // Note: this immediately starts downloading the file to the download folder (i.e. without asking for a destination where to save it)!
-		} else {
-			throw new Exception("download-button not found");			
-		}
-		
-		waitUntilDownloadCompletes(downloadFile);
-		
-		if (downloadFile.exists() && downloadFile.canRead()) {
-			if (targetPath == null || targetPath.equals(downloadPath)) {
-				log.debug("Downloaded file is already in target folder.");
-			} else { // move the downloaded file to the target destination:
-				log.info("target path is: '{}'", targetPath);				
-				String targetFullPath = targetPath + (targetPath.endsWith(File.separator) ? "" : File.separator) + issueName;
-				File targetFile = new File(targetFullPath);
-				log.info("full target name is: '{}'", targetFullPath);	
-				// if target exists already: delete it:
-				if (targetFile.exists()) {
-					log.info("deleting prior existing file '{}':", targetFile);
-					if (targetFile.delete()) {
-						log.info("prior existing file deleted.");					
+		try {
+			String issueName = String.format(IssueFileName, new SimpleDateFormat(DateFormat).format(Date.from(Instant.now())));
+			log.info("looking for issue: '" + issueName + "'");
+			
+			String issueFullName = downloadPath + (downloadPath.endsWith(File.separator) ? "" : File.separator) + issueName;
+			File downloadFile = new File(issueFullName);
+			if (downloadFile.exists()) {
+				downloadFile.delete();
+			}
+			// it often takes forever and a day until the login-panel has disappeared
+			Thread.sleep(5000);
+			WebElement downloadButton = waitForAppearance("download", 30);
+			if (downloadButton != null) {		
+				Thread.sleep(5000); // it typically takes several seconds until that button gets visible and active:
+				new WebDriverWait(driver, Duration.ofSeconds(30)).until(ExpectedConditions.elementToBeClickable(downloadButton));
+				log.info("Clicking '{}'", downloadButton.getText());
+				downloadButton.click(); // Note: this immediately starts downloading the file to the download folder (i.e. without asking for a destination where to save it)!
+			} else {
+				throw new Exception("download-button not found");			
+			}
+			
+			waitUntilDownloadCompletes(downloadFile);
+			
+			if (downloadFile.exists() && downloadFile.canRead()) {
+				if (targetPath == null || targetPath.equals(downloadPath)) {
+					log.debug("Downloaded file is already in target folder.");
+					showLocalURL(downloadFile);				
+				} else { // move the downloaded file to the target destination:
+					log.info("target path is: '{}'", targetPath);				
+					String targetFullPath = targetPath + (targetPath.endsWith(File.separator) ? "" : File.separator) + issueName;
+					File targetFile = new File(targetFullPath);
+					log.info("full target name is: '{}'", targetFullPath);	
+					// if target exists already: delete it:
+					if (targetFile.exists()) {
+						log.info("deleting prior existing file '{}':", targetFile);
+						if (targetFile.delete()) {
+							log.info("prior existing file deleted.");					
+						} else {
+							log.warn("unabled to delete prior existing file '{}' - the following move will likely fail:", targetFile);										
+						}
+					}
+					log.info("moving the downloaded file '{}' to the target destination '{}':", downloadFile, targetFile);
+					if (downloadFile.renameTo(targetFile)) {
+						log.info("done.");
+						showLocalURL(targetFile);
 					} else {
-						log.warn("unabled to delete prior existing file '{}' - the following move will likely fail:", targetFile);										
+						log.error("Failed to move the downloaded file '{}' to the target destination '{}' - file remains in download folder", downloadFile, targetFile);														
 					}
 				}
-				log.info("moving the downloaded file '{}' to the target destination '{}':", downloadFile, targetFile);
-				if (downloadFile.renameTo(targetFile)) {
-					log.info("done.");
-				} else {
-					log.error("Failed to move the downloaded file '{}' to the target destination '{}' - file remains in download folder", downloadFile, targetFile);														
-				}
+			} else {
+				log.error("downloaded file '{}' not found!", downloadFile);
 			}
-		} else {
-			log.error("downloaded file '{}' not found!", downloadFile);
+		} finally {
+			driver.navigate().back(); // go back to the issue list page in preparation for possible further downloads)
 		}
-		driver.navigate().back(); // go back to the issue list page in preparation for possible further downloads)
 	}
 
+	private String showLocalURL(File file) throws IOException { 
+		String url = "file:///" + file.getCanonicalPath().replace('\\', '/');
+		log.info("To open issue go to '" + url + "'.");
+		return url;
+	}
+	
 	void closeBrowser() {
 		log.info("closeBrowser.");
 		if (driver != null) { // terminate the browser.
