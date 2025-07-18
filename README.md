@@ -1,4 +1,4 @@
-# c't Downloader
+# NZZ Downloader
 This is a utility to regularly download today's issue of the [NZZ newspaper](https://www.nzz.ch) in PDF format.
 
 It uses [Selenium](https://www.selenium.dev/) to start a Chrome-Browser instance, navigates to 
@@ -18,9 +18,9 @@ See the `downloadNZZ.cmd`-file for an example how to run this via a Windows comm
 (Note: you will have to enter your user-id and password into that file to get going...).
 
 ```
-usage: Download_CT
- -u,--username <arg>          user-id for login to NZZ wensite [required]
- -p,--password <arg>          password for login to NZZ wensite [required]
+usage: Download_NZZ
+ -u,--username <arg>          user-id for login to NZZ website [required]
+ -p,--password <arg>          password for login to NZZ website [required]
  -d,--download-folder <arg>   download-folder  [optional - default: %HOME%\downloads-folder will be used]
  -t,--target-folder <arg>     target-folder [optional - default: leave file in the download-folder (above)]
 ```
