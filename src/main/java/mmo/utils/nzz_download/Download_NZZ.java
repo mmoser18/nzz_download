@@ -106,7 +106,7 @@ public class Download_NZZ
 //			log.info("Clicking '{}'", dontAllowButton.getText());
 //			dontAllowButton.click();
 //		}	
-		WebElement datenSchutzBlaBla = waitForAppearance("cmpboxWelcomeGDPR", 2);
+		WebElement datenSchutzBlaBla = waitForAppearance("cmpboxWelcomeGDPR", 3);
 		if (datenSchutzBlaBla != null) {
 			WebElement einstellungen = waitForAppearance("cmptxt_btn_settings", 1);
 			if (einstellungen != null) {
