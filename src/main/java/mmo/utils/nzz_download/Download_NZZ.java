@@ -10,8 +10,12 @@ package mmo.utils.nzz_download;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
+import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -41,7 +45,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 public class Download_NZZ
 {
 	private final static String baseUrl = "https://epaper.nzz.ch/storefront/6";
-	private final static String IssueFileName = "Gesamtausgabe_Neue_Zürcher_Zeitung_%s.pdf"; // %s: Datum in <DateFormat>
+	private final static String DownloadFileName = "Gesamtausgabe_Neue_Zürcher_Zeitung_%s.pdf"; // %s: Datum in <DateFormat>
 	private final static String DateFormat = "yyyy-MM-dd";
 	private final static int DownloadMaxWait = 60; // [seconds] max. completion wait time before a download is considered failed
 	private final static int AppearanceDefaultWait = 5; // [seconds]
@@ -196,7 +200,7 @@ public class Download_NZZ
 	 * Newly the download file gets some random names which we first need to figure out.
 	 * Found here: https://stackoverflow.com/questions/34548041/selenium-give-file-name-when-downloading
 	 */
-	void waitUntilDownloadCompletes(final File downloadFile) throws Exception {
+	File waitUntilDownloadCompletes(final File downloadFile) throws Exception {
 		log.info("downloading to '{}':", downloadFile);
 		// Store the current window handle
 		final String mainWindow = driver.getWindowHandle();   
@@ -272,6 +276,7 @@ public class Download_NZZ
 //					log.info("renaming '{}' to '{}':", downloadedFile.getAbsolutePath(), downloadFile);						
 //					downloadedFile.renameTo(downloadFile);
 //				}
+				return downloadedFile;
 			} catch (Exception ex) {
 				log.info("Exception " + ex.getMessage());
 				throw ex;
@@ -287,11 +292,11 @@ public class Download_NZZ
 	
 	void downloadEPaper() throws Exception {
 		try {
-			String issueName = String.format(IssueFileName, new SimpleDateFormat(DateFormat).format(Date.from(Instant.now())));
-			log.info("looking for issue: '" + issueName + "'");
+			String downloadName = String.format(DownloadFileName, new SimpleDateFormat(DateFormat).format(Date.from(Instant.now())));
+			log.info("looking for issue: '" + downloadName + "'");
 			
-			String issueFullName = downloadPath + (downloadPath.endsWith(File.separator) ? "" : File.separator) + issueName;
-			File downloadFile = new File(issueFullName);
+			String downloadFullName = downloadPath + (downloadPath.endsWith(File.separator) ? "" : File.separator) + downloadName;
+			File downloadFile = new File(downloadFullName);
 			if (downloadFile.exists()) {
 				downloadFile.delete();
 			}
@@ -307,15 +312,16 @@ public class Download_NZZ
 				throw new Exception("download-button not found");			
 			}
 			
-			waitUntilDownloadCompletes(downloadFile);
+			final File downloadedFile = waitUntilDownloadCompletes(downloadFile);
+			// Note that the names of downloadFile and download*ed*File may differ! 
 			
-			if (downloadFile.exists() && downloadFile.canRead()) {
+			if (downloadedFile.exists() && downloadedFile.canRead()) {
 				if (targetPath == null || targetPath.equals(downloadPath)) {
 					log.debug("Downloaded file is already in target folder.");
-					showLocalURL(downloadFile);				
+					showLocalURL(downloadedFile);				
 				} else { // move the downloaded file to the target destination:
 					log.info("target path is: '{}'", targetPath);				
-					String targetFullPath = targetPath + (targetPath.endsWith(File.separator) ? "" : File.separator) + issueName;
+					String targetFullPath = targetPath + (targetPath.endsWith(File.separator) ? "" : File.separator) + downloadedFile.getName();
 					File targetFile = new File(targetFullPath);
 					log.info("full target name is: '{}'", targetFullPath);	
 					// if target exists already: delete it:
@@ -327,8 +333,8 @@ public class Download_NZZ
 							log.warn("unabled to delete prior existing file '{}' - the following move will likely fail:", targetFile);										
 						}
 					}
-					log.info("moving the downloaded file '{}' to the target destination '{}':", downloadFile, targetFile);
-					if (downloadFile.renameTo(targetFile)) {
+					log.info("moving the downloaded file '{}' to the target destination '{}':", downloadedFile, targetFile);
+					if (downloadedFile.renameTo(targetFile)) {
 						log.info("done.");
 						showLocalURL(targetFile);
 					} else {
@@ -336,16 +342,17 @@ public class Download_NZZ
 					}
 				}
 			} else {
-				log.error("downloaded file '{}' not found!", downloadFile);
+				log.error("downloaded file '{}' not found!", downloadedFile);
 			}
 		} finally {
 			driver.navigate().back(); // go back to the issue list page in preparation for possible further downloads)
 		}
 	}
 
-	private String showLocalURL(File file) throws IOException { 
-		String url = "file:///" + file.getCanonicalPath().replace('\\', '/');
+	private String showLocalURL(File file) throws IOException, URISyntaxException { 
+		String url = "file:///" + file.getCanonicalPath().replace('\\', '/').replace(" ", "%20");
 		log.info("To open issue go to '" + url + "'.");
+		Desktop.getDesktop().browse(new URI(url));
 		return url;
 	}
 	
