@@ -47,7 +47,7 @@ public class Download_NZZ
 	private final static String baseUrl = "https://epaper.nzz.ch/storefront/6";
 	private final static String DownloadFileName = "Gesamtausgabe_Neue_Zürcher_Zeitung_%s.pdf"; // %s: Datum in <DateFormat>
 	private final static String DateFormat = "yyyy-MM-dd";
-	private final static int DownloadMaxWait = 60; // [seconds] max. completion wait time before a download is considered failed
+	private final static int DownloadMaxWait = 90; // [seconds] max. completion wait time before a download is considered failed
 	private final static int AppearanceDefaultWait = 5; // [seconds]
 	private final static String DefaultDownloadPath = (System.getProperty("os.name").startsWith("Windows") 
 	                                                  ? System.getProperty("user.home", "U:") // assuming "U:" points to user's home directory
@@ -133,28 +133,31 @@ public class Download_NZZ
 		if (loginButton!= null && loginButton.isDisplayed()) { // we are not logged-in, yet.
 			log.info("\"Anmelden\" is displayed - logging in:");
 			loginButton.click();
-			Thread.sleep(3000);
-			
-			// the login-panel is an iframe - so we first need to find the correct one, 
-			// i.e. the one whose name starts with "piano-id-":
-			//finding all the web elements using iframe tag
-			List<WebElement> iframeElements = driver.findElements(By.tagName("iframe"));
-			log.debug("Total number of iframes found: " + iframeElements.size());
-
 			WebDriver frameDriver = null;
-			for (int i = 0; i < iframeElements.size(); i++) {
-				String name = iframeElements.get(i).getDomAttribute("name");
-				log.debug("Frame-name: '" + name + "'");
-				if (name.startsWith("piano-id-")) {
-					frameDriver = driver.switchTo().frame(i);
-					log.info("iframe for credentials entry found: '" + name + "'");			
-					break;
+		  outer:
+			for (int n = 0; n < 10; n++) {
+				Thread.sleep(1000);
+
+				// the login-panel is an iframe - so we first need to find the correct one, 
+				// i.e. the one whose name starts with "piano-id-":
+				//finding all the web elements using iframe tag
+				List<WebElement> iframeElements = driver.findElements(By.tagName("iframe"));
+				log.debug("Total number of iframes found: " + iframeElements.size());
+	
+				for (int i = 0; i < iframeElements.size(); i++) {
+					String name = iframeElements.get(i).getDomAttribute("name");
+					log.debug("Frame-name: '" + name + "'");
+					if (name.startsWith("piano-id-")) {
+						frameDriver = driver.switchTo().frame(i);
+						log.info("iframe for credentials entry found: '" + name + "'");			
+						break outer;
+					}
 				}
 			}
 			if (frameDriver != null) {
-				WebElement loginUsr = frameDriver.findElement(By.xpath("//input[@name='email']"));
-				WebElement loginPwd = frameDriver.findElement(By.xpath("//input[@type='password']"));
-				WebElement anmeldenButton = frameDriver.findElement(By.className("prime"));
+				WebElement loginUsr = waitForAppearance(By.xpath("//input[@name='email']"), 10);
+				WebElement loginPwd = waitForAppearance(By.xpath("//input[@type='password']"), 1);
+				WebElement anmeldenButton = waitForAppearance(By.className("prime"), 1);
 				if (loginUsr == null) {
 					throw new Exception("email entry-field not found");
 				}
@@ -176,7 +179,7 @@ public class Download_NZZ
 				anmeldenButton.click();	
 				log.info("we should be logged-in now...");
 			} else {
-				throw new Exception("expected frame for login credentials not found");
+				throw new Exception("expected iframe for login credentials not found");
 			}
 		} else {
 			log.info("'Anmelden' is NOT displayed - assuming that we already logged in.");			
@@ -360,9 +363,11 @@ public class Download_NZZ
 		log.info("closeBrowser.");
 		if (driver != null) { // terminate the browser.
 			try {
-				if (!debug) driver.quit();
+				if (!debug) {
+					driver.quit();
+				}
 			} catch (Exception ex) {
-				log.error("quitting driver threw an exception: " + ex.getMessage());
+				log.error("closing/quitting driver threw an exception: " + ex.getMessage());
 				// ignore - we were only trying to gracefully shut down anyway...
 			}
 			driver = null;
