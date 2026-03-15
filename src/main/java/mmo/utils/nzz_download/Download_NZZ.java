@@ -15,7 +15,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -49,29 +48,29 @@ public class Download_NZZ
 	private final static String DateFormat = "yyyy-MM-dd";
 	private final static int DownloadMaxWait = 90; // [seconds] max. completion wait time before a download is considered failed
 	private final static int AppearanceDefaultWait = 5; // [seconds]
-	private final static String DefaultDownloadPath = (System.getProperty("os.name").startsWith("Windows") 
+	private final static String DefaultDownloadPath = (System.getProperty("os.name").startsWith("Windows")
 	                                                  ? System.getProperty("user.home", "U:") // assuming "U:" points to user's home directory
 	                                                  : "~") // for *ix and Mac
 	                                                  + File.separator + "Downloads";
 
 	private final static String TempDirName = "NZZ_Downloads";
 	private final static String DownloadDirPath = DefaultDownloadPath + File.separator + TempDirName;
-	
+
 	private String downloadPath = DownloadDirPath;
 	private String targetPath;
 	private String usr;
 	private String pwd;
 	private boolean debug;
-	
+
 	private WebDriver driver;
-	
+
 	@SuppressWarnings("removal")
 	@Override
 	protected void finalize() throws Throwable {
 		closeBrowser();
 		super.finalize();
 	}
-	
+
 	void setUpBrowser() throws Exception {
 		log.info("setUpBrowser.");
 
@@ -79,14 +78,16 @@ public class Download_NZZ
 		final File file = new File(DownloadDirPath);
 		if (!file.exists()) {
 			if (!file.mkdirs()) {
-				throw new Exception("Not able to create temp. download directory '" + DownloadDirPath + "'");				
+				throw new Exception("Not able to create temp. download directory '" + DownloadDirPath + "'");
 			}
 		}
 		if (!file.isDirectory() || !file.canRead()) {
-			throw new Exception("Temp. download directory '" + DownloadDirPath + "' is not a directory or not readable.");							
+			throw new Exception("Temp. download directory '" + DownloadDirPath + "' is not a directory or not readable.");
 		}
-		if (!debug) file.deleteOnExit();
-		
+		if (!debug) {
+			file.deleteOnExit();
+		}
+
 		// Initialize ChromeDriver:
 		ChromeOptions chromeOptions = new ChromeOptions();
 		// found this "https://medium.com/@akshayshinde7289/how-to-download-pdf-file-in-chrome-using-selenium-6a717ced483b"
@@ -103,13 +104,13 @@ public class Download_NZZ
 		log.info("navigating to '" + baseUrl + "':");
 		driver.get(baseUrl);
 	}
-	
+
 	void getRidOfNZZGarbage() throws Exception {
 //		WebElement dontAllowButton = waitForApearance(By.id("moe-dontallow_button"), 2);
 //		if (dontAllowButton != null) {
 //			log.info("Clicking '{}'", dontAllowButton.getText());
 //			dontAllowButton.click();
-//		}	
+//		}
 		WebElement datenSchutzBlaBla = waitForAppearance("cmpboxWelcomeGDPR", 3);
 		if (datenSchutzBlaBla != null) {
 			WebElement einstellungen = waitForAppearance("cmptxt_btn_settings", 1);
@@ -123,10 +124,10 @@ public class Download_NZZ
 				}
 			}
 		} else {
-			log.info("No data protection nuissance detected.");			
+			log.info("No data protection nuissance detected.");
 		}
 	}
-	
+
 	void login() throws Exception {
 		WebElement loginButton = waitForAppearance("fup-login", 3);
 		log.debug("loginButton=" + loginButton);
@@ -138,18 +139,18 @@ public class Download_NZZ
 			for (int n = 0; n < 10; n++) {
 				Thread.sleep(1000);
 
-				// the login-panel is an iframe - so we first need to find the correct one, 
+				// the login-panel is an iframe - so we first need to find the correct one,
 				// i.e. the one whose name starts with "piano-id-":
 				//finding all the web elements using iframe tag
 				List<WebElement> iframeElements = driver.findElements(By.tagName("iframe"));
 				log.debug("Total number of iframes found: " + iframeElements.size());
-	
+
 				for (int i = 0; i < iframeElements.size(); i++) {
 					String name = iframeElements.get(i).getDomAttribute("name");
 					log.debug("Frame-name: '" + name + "'");
 					if (name.startsWith("piano-id-")) {
 						frameDriver = driver.switchTo().frame(i);
-						log.info("iframe for credentials entry found: '" + name + "'");			
+						log.info("iframe for credentials entry found: '" + name + "'");
 						break outer;
 					}
 				}
@@ -176,13 +177,13 @@ public class Download_NZZ
 				typeSlowly(loginPwd, pwd); // the input was only partially accepted when typing full speed... ||-(
 				Thread.sleep(250);
 				log.info("clicking '{}':", anmeldenButton);
-				anmeldenButton.click();	
+				anmeldenButton.click();
 				log.info("we should be logged-in now...");
 			} else {
 				throw new Exception("expected iframe for login credentials not found");
 			}
 		} else {
-			log.info("'Anmelden' is NOT displayed - assuming that we already logged in.");			
+			log.info("'Anmelden' is NOT displayed - assuming that we already logged in.");
 		}
 		driver.switchTo().defaultContent();
 	}
@@ -198,7 +199,7 @@ public class Download_NZZ
 			Thread.sleep(10);
 		}
 	}
-	
+
 	/*
 	 * Newly the download file gets some random names which we first need to figure out.
 	 * Found here: https://stackoverflow.com/questions/34548041/selenium-give-file-name-when-downloading
@@ -206,9 +207,9 @@ public class Download_NZZ
 	File waitUntilDownloadCompletes(final File downloadFile) throws Exception {
 		log.info("downloading to '{}':", downloadFile);
 		// Store the current window handle
-		final String mainWindow = driver.getWindowHandle();   
+		final String mainWindow = driver.getWindowHandle();
 		log.trace("currently on: title: '{}' / handle: '{}'", driver.getTitle(), driver.getWindowHandle());
-		
+
 		try {
 			log.trace("handles are: '{}'", driver.getWindowHandles());
 			// open a new tab:
@@ -216,7 +217,7 @@ public class Download_NZZ
 			int nrAttempts = 0;
 			while (driver.getWindowHandles().size() < 2) {
 				if (++nrAttempts > 3) {
-					throw new Exception(String.format("Opening of new Tab did not complete in '%d' seconds - aborted.", nrAttempts));								
+					throw new Exception(String.format("Opening of new Tab did not complete in '%d' seconds - aborted.", nrAttempts));
 				}
 			}
 			log.trace("handles2 are: '{}'", driver.getWindowHandles());
@@ -225,7 +226,7 @@ public class Download_NZZ
 
 			// navigate to chrome downloads in that new tab:
 			driver.get("chrome://downloads");
-			
+
 			JavascriptExecutor js = (JavascriptExecutor)driver;
 			// wait until the file is downloaded:
 			final String baseQuery = "return document.querySelector('downloads-manager').shadowRoot.querySelector('#downloadsList downloads-item')";
@@ -237,13 +238,15 @@ public class Download_NZZ
 				while (++nrAttempts < DownloadMaxWait) {
 					try {
 						fileName = (String)js.executeScript(query + ".text"); // get the latest downloaded file's name
-						if (fileName != null) break;
+						if (fileName != null) {
+							break;
+						}
 					} catch (Exception ex) {
-						if (!ex.getMessage().contains("Cannot read properties of null (reading 'shadowRoot')")) { // this one is expected while the download is not complete, yet 
+						if (!ex.getMessage().contains("Cannot read properties of null (reading 'shadowRoot')")) { // this one is expected while the download is not complete, yet
 							log.info("Exception {}: {}", ex.getClass(), ex.getMessage());
 						}
 					}
-					log.info("waiting ({})...", nrAttempts);			
+					log.info("waiting ({})...", nrAttempts);
 					Thread.sleep(1000);
 				}
 				log.info("downloaded file: '" + fileName + "'");
@@ -252,7 +255,7 @@ public class Download_NZZ
 				if (fileName == null || fileName.isBlank()) {
 					throw new Exception("Download of PDF-file failed.");
 				}
-				
+
 				final String fullDownloadFileName = DownloadDirPath + File.separator + fileName;
 				final File downloadedFile = new File(fullDownloadFileName);
 
@@ -261,22 +264,22 @@ public class Download_NZZ
 					if (downloadedFile.exists() && downloadedFile.canRead()) {
 						break;
 					}
-					log.info("waiting for '{}' ({})...", fullDownloadFileName, nrAttempts);			
+					log.info("waiting for '{}' ({})...", fullDownloadFileName, nrAttempts);
 					Thread.sleep(1000);
 				}
 				if (nrAttempts >= DownloadMaxWait) {
 					throw new Exception("Expected a readable file '" + downloadedFile.getAbsolutePath() + "' but didn't find such!?");
 				}
-				log.info("downloaded '{}':", downloadedFile.getAbsolutePath());	
-				
-// oddly the names are now correct again (for some time they were numeric monsters simmilar to UUIDs). 
+				log.info("downloaded '{}':", downloadedFile.getAbsolutePath());
+
+// oddly the names are now correct again (for some time they were numeric monsters simmilar to UUIDs).
 //				// rename the downloaded file, i.e. give it back a reasonable, speaking name:
-//				if (!downloadFile.getAbsolutePath().equals(downloadedFile.getAbsolutePath())) {				
+//				if (!downloadFile.getAbsolutePath().equals(downloadedFile.getAbsolutePath())) {
 //					if (downloadFile.exists()) { // just in case it exists from an earlier but failed runs
 //						log.info("deleting '{}':", downloadFile);
 //						downloadFile.delete();
 //					}
-//					log.info("renaming '{}' to '{}':", downloadedFile.getAbsolutePath(), downloadFile);						
+//					log.info("renaming '{}' to '{}':", downloadedFile.getAbsolutePath(), downloadFile);
 //					downloadedFile.renameTo(downloadFile);
 //				}
 				return downloadedFile;
@@ -284,7 +287,7 @@ public class Download_NZZ
 				log.info("Exception " + ex.getMessage());
 				throw ex;
 			}
-		// we don't catch any exception - rather the program will terminate 
+		// we don't catch any exception - rather the program will terminate
 		} finally {
 			// close the downloads tab2
 			driver.close();
@@ -292,12 +295,12 @@ public class Download_NZZ
 			driver.switchTo().window(mainWindow);
 		}
 	}
-	
+
 	void downloadEPaper() throws Exception {
 		try {
 			String downloadName = String.format(DownloadFileName, new SimpleDateFormat(DateFormat).format(Date.from(Instant.now())));
 			log.info("looking for issue: '" + downloadName + "'");
-			
+
 			String downloadFullName = downloadPath + (downloadPath.endsWith(File.separator) ? "" : File.separator) + downloadName;
 			File downloadFile = new File(downloadFullName);
 			if (downloadFile.exists()) {
@@ -306,34 +309,34 @@ public class Download_NZZ
 			// it often takes forever and a day until the login-panel has disappeared
 			Thread.sleep(5000);
 			WebElement downloadButton = waitForAppearance("download", 30);
-			if (downloadButton != null) {		
+			if (downloadButton != null) {
 				Thread.sleep(5000); // it typically takes several seconds until that button gets visible and active:
 				new WebDriverWait(driver, Duration.ofSeconds(30)).until(ExpectedConditions.elementToBeClickable(downloadButton));
 				log.info("Clicking '{}'", downloadButton.getText());
 				downloadButton.click(); // Note: this immediately starts downloading the file to the download folder (i.e. without asking for a destination where to save it)!
 			} else {
-				throw new Exception("download-button not found");			
+				throw new Exception("download-button not found");
 			}
-			
+
 			final File downloadedFile = waitUntilDownloadCompletes(downloadFile);
-			// Note that the names of downloadFile and download*ed*File may differ! 
-			
+			// Note that the names of downloadFile and download*ed*File may differ!
+
 			if (downloadedFile.exists() && downloadedFile.canRead()) {
 				if (targetPath == null || targetPath.equals(downloadPath)) {
 					log.debug("Downloaded file is already in target folder.");
-					showLocalURL(downloadedFile);				
+					showLocalURL(downloadedFile);
 				} else { // move the downloaded file to the target destination:
-					log.info("target path is: '{}'", targetPath);				
+					log.info("target path is: '{}'", targetPath);
 					String targetFullPath = targetPath + (targetPath.endsWith(File.separator) ? "" : File.separator) + downloadedFile.getName();
 					File targetFile = new File(targetFullPath);
-					log.info("full target name is: '{}'", targetFullPath);	
+					log.info("full target name is: '{}'", targetFullPath);
 					// if target exists already: delete it:
 					if (targetFile.exists()) {
 						log.info("deleting prior existing file '{}':", targetFile);
 						if (targetFile.delete()) {
-							log.info("prior existing file deleted.");					
+							log.info("prior existing file deleted.");
 						} else {
-							log.warn("unabled to delete prior existing file '{}' - the following move will likely fail:", targetFile);										
+							log.warn("unabled to delete prior existing file '{}' - the following move will likely fail:", targetFile);
 						}
 					}
 					log.info("moving the downloaded file '{}' to the target destination '{}':", downloadedFile, targetFile);
@@ -341,7 +344,7 @@ public class Download_NZZ
 						log.info("done.");
 						showLocalURL(targetFile);
 					} else {
-						log.error("Failed to move the downloaded file '{}' to the target destination '{}' - file remains in download folder", downloadFile, targetFile);														
+						log.error("Failed to move the downloaded file '{}' to the target destination '{}' - file remains in download folder", downloadFile, targetFile);
 					}
 				}
 			} else {
@@ -352,13 +355,13 @@ public class Download_NZZ
 		}
 	}
 
-	private String showLocalURL(File file) throws IOException, URISyntaxException { 
+	private String showLocalURL(File file) throws IOException, URISyntaxException {
 		String url = "file:///" + file.getCanonicalPath().replace('\\', '/').replace(" ", "%20");
 		log.info("To open issue go to '" + url + "'.");
 		Desktop.getDesktop().browse(new URI(url));
 		return url;
 	}
-	
+
 	void closeBrowser() {
 		log.info("closeBrowser.");
 		if (driver != null) { // terminate the browser.
@@ -373,16 +376,16 @@ public class Download_NZZ
 			driver = null;
 		}
 	}
-	
+
 	WebElement waitForAppearance(String className) throws Exception {
 		return waitForAppearance(className, AppearanceDefaultWait);
 	}
 	WebElement waitForAppearance(String className, int waitMaxSeconds) throws Exception {
 		return waitForAppearance(By.className(className), waitMaxSeconds);
 	}
-	
+
 	WebElement waitForAppearance(By by, int waitMaxSeconds) throws Exception {
-		log.info("waiting for appearance of element '{}'", by);	
+		log.info("waiting for appearance of element '{}'", by);
 		List<WebElement> elems = null;
 		WebElement expectedElem = null;
 		int nrAttempts = 0;
@@ -395,7 +398,7 @@ public class Download_NZZ
 				log.info("no element '" + by + "' found within " + waitMaxSeconds + " seconds");
 				return null;
 			}
-			log.info("waiting ({})...", nrAttempts);			
+			log.info("waiting ({})...", nrAttempts);
 			Thread.sleep(1000);
 		} while (true);
 		return expectedElem;
@@ -409,10 +412,10 @@ public class Download_NZZ
 				this.downloadPath = opt.getValue().replace('/', File.separatorChar);
 				if (this.downloadPath.endsWith("\"")) { // for some odd reason the trailing quote from the cmd-file makes in into the argument ||-(
 					this.downloadPath = this.downloadPath.substring(0, this.downloadPath.length()-1);
-				}				
+				}
 				break;
 			case 't':
-				this.targetPath = opt.getValue().replace('/', File.separatorChar); 
+				this.targetPath = opt.getValue().replace('/', File.separatorChar);
 				if (this.targetPath.endsWith("\"")) { // for some odd reason the trailing quote from the cmd-file makes in into the argument ||-(
 					this.targetPath = this.targetPath.substring(0, this.targetPath.length()-1);
 				}
@@ -429,7 +432,7 @@ public class Download_NZZ
 			default:
 				log.error("Unexpected option: '{}' - ignored.");
 				usage(options, -4);
-			}	
+			}
 		}
 		if (this.usr == null || this.pwd == null || line.getArgList().size() > 0) {
 			usage(options, -5);
@@ -440,9 +443,11 @@ public class Download_NZZ
 		// automatically generate the help statement
 		HelpFormatter formatter = new HelpFormatter();
 		formatter.printHelp(100, "java -jar <jar.file> { <options> }.\n\n", "options are:", options, "");
-		if (exitCode != 0) System.exit(exitCode);
+		if (exitCode != 0) {
+			System.exit(exitCode);
+		}
 	}
-	
+
 	private static Options createOptions() {
 		final Options options = new Options();
 		options.addOption(new Option("u", "username", true, "user-id for login to NZZ website [required]"));
@@ -451,7 +456,7 @@ public class Download_NZZ
 		options.addOption(new Option("t", "target-folder", true, "target-folder [optional - default: same as download-folder]"));
 		options.addOption(new Option("x", "debug", true, "toggle debug mode (do not delete temp. files at exit, etc.)"));
 		return options;
-	}	
+	}
 
 	public static void main(String[] arguments) {
 		Options options = null;
@@ -472,7 +477,7 @@ public class Download_NZZ
 			System.err.println("Illegal or malformed option(s): " + exp.getMessage());
 			usage(options, -2);
 		}
-		
+
 		try {
 			Download_NZZ downloader = new Download_NZZ();
 			downloader.processCommandLine(line, options);
