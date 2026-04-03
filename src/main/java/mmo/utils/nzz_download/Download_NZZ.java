@@ -113,10 +113,10 @@ public class Download_NZZ
 //		}
 		WebElement datenSchutzBlaBla = waitForAppearance("cmpboxWelcomeGDPR", 3);
 		if (datenSchutzBlaBla != null) {
-			WebElement einstellungen = waitForAppearance("cmptxt_btn_settings", 1);
-			if (einstellungen != null) {
-				log.info("Clicking '{}'", einstellungen.getText());
-				einstellungen.click();
+			WebElement rejectAllCookies = waitForAppearance("cmptxt_btn_settings", 1);
+			if (rejectAllCookies != null) {
+				log.info("Clicking '{}'", rejectAllCookies.getText());
+				rejectAllCookies.click();
 				WebElement speichernUndBeenden = waitForAppearance("cmptxt_btn_save", 1);
 				if (speichernUndBeenden != null) {
 					log.info("Clicking '{}'", speichernUndBeenden.getText());
@@ -125,6 +125,16 @@ public class Download_NZZ
 			}
 		} else {
 			log.info("No data protection nuissance detected.");
+		}
+		WebElement cookieBlaBla = waitForAppearance("cmpboxhlcustomcoices", 3);
+		if (cookieBlaBla != null) {
+			WebElement rejectAllCookies = waitForAppearance("cmpboxbtnreject", 1);
+			if (rejectAllCookies != null) {
+				log.info("Clicking '{}'", rejectAllCookies.getText());
+				rejectAllCookies.click();
+			}
+		} else {
+			log.info("No cookie selection nuissance detected.");
 		}
 	}
 
