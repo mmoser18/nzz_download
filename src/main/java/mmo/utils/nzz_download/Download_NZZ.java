@@ -106,36 +106,34 @@ public class Download_NZZ
 	}
 
 	void getRidOfNZZGarbage() throws Exception {
-//		WebElement dontAllowButton = waitForApearance(By.id("moe-dontallow_button"), 2);
-//		if (dontAllowButton != null) {
-//			log.info("Clicking '{}'", dontAllowButton.getText());
-//			dontAllowButton.click();
-//		}
-		WebElement datenSchutzBlaBla = waitForAppearance("cmpboxWelcomeGDPR", 3);
-		if (datenSchutzBlaBla != null) {
-			WebElement rejectAllCookies = waitForAppearance("cmptxt_btn_settings", 1);
-			if (rejectAllCookies != null) {
-				log.info("Clicking '{}'", rejectAllCookies.getText());
-				rejectAllCookies.click();
-				WebElement speichernUndBeenden = waitForAppearance("cmptxt_btn_save", 1);
-				if (speichernUndBeenden != null) {
-					log.info("Clicking '{}'", speichernUndBeenden.getText());
-					speichernUndBeenden.click();
+		// first popup: "We use Cookies and similar technologies..."
+		WebElement dataProtectionBlaBla = waitForAppearance("cmpboxWelcomeGDPR", 3);
+		if (dataProtectionBlaBla != null) {
+			// Selection: "Detailed preferences:"
+			WebElement detailedPreferences = waitForAppearance("cmptxt_btn_settings", 1);
+			if (detailedPreferences != null) {
+				log.info("Clicking '{}'", detailedPreferences.getText());
+				detailedPreferences.click();
+				// Selection: "Reject all"
+				WebElement rejectAll = waitForAppearance("cmpboxbtnreject", 1);
+				if (rejectAll != null) {
+					log.info("Clicking '{}'", rejectAll.getText());
+					rejectAll.click();
 				}
 			}
 		} else {
 			log.info("No data protection nuissance detected.");
 		}
-		WebElement cookieBlaBla = waitForAppearance("cmpboxhlcustomcoices", 3);
-		if (cookieBlaBla != null) {
-			WebElement rejectAllCookies = waitForAppearance("cmpboxbtnreject", 1);
-			if (rejectAllCookies != null) {
-				log.info("Clicking '{}'", rejectAllCookies.getText());
-				rejectAllCookies.click();
-			}
-		} else {
-			log.info("No cookie selection nuissance detected.");
-		}
+//		WebElement cookieBlaBla = waitForAppearance("cmpboxhlcustomcoices", 3);
+//		if (cookieBlaBla != null) {
+//			WebElement rejectAllCookies = waitForAppearance("cmpboxbtnreject", 1);
+//			if (rejectAllCookies != null) {
+//				log.info("Clicking '{}'", rejectAllCookies.getText());
+//				rejectAllCookies.click();
+//			}
+//		} else {
+//			log.info("No cookie selection nuissance detected.");
+//		}
 	}
 
 	void login() throws Exception {
