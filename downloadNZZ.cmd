@@ -7,7 +7,10 @@ set prj=%HOME%\Documents\eclipse\workspace\nzz_download
 rem target folder:
 set tgt=%prj%\target
 rem program executable location:
-set jar=%tgt%\nzz_download-1.4.0.jar
+rem set jar=%tgt%\nzz_download-1.4.0.jar - trying to find the correct jar automatically:
+for /f "tokens=*" %%i in ('dir /b "%tgt%\nzz_download-*.jar"') do set jar=%%i
+echo executing: %jar%
+
 rem download location:
 set dst=Y:\Things to read\NZZ\rem download location:
 
