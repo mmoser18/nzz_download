@@ -1,5 +1,5 @@
 /**
- * Copyright © 2024-2025 by Michael Moser
+ * Copyright © 2024-2026 by Michael Moser
  * Released under GPL V3 or later
  *
  * @author mmo / Michael Moser / 17732576+mmoser18@users.noreply.github.com
@@ -24,7 +24,7 @@ import java.util.List;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.openqa.selenium.By;
@@ -43,9 +43,6 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 @ToString
 public class Download_NZZ
 {
-	private final static String baseUrl = "https://epaper.nzz.ch/storefront/6";
-	private final static String DownloadFileName = "Gesamtausgabe_Neue_Zürcher_Zeitung_%s.pdf"; // %s: Datum in <DateFormat>
-	private final static String DateFormat = "yyyy-MM-dd";
 	private final static int DownloadMaxWait = 90; // [seconds] max. completion wait time before a download is considered failed
 	private final static int AppearanceDefaultWait = 5; // [seconds]
 	private final static String DefaultDownloadPath = (System.getProperty("os.name").startsWith("Windows")
@@ -53,16 +50,22 @@ public class Download_NZZ
 	                                                  : "~") // for *ix and Mac
 	                                                  + File.separator + "Downloads";
 
+	private final static String baseUrl = "https://epaper.nzz.ch/storefront/6";
+	private final static String DownloadFileName = "Gesamtausgabe_Neue_Zürcher_Zeitung_%s.pdf"; // %s: Datum in <DateFormat>
+	private final static String DateFormat = "yyyy-MM-dd";
 	private final static String TempDirName = "NZZ_Downloads";
 	private final static String DownloadDirPath = DefaultDownloadPath + File.separator + TempDirName;
 
-	private String downloadPath = DownloadDirPath;
-	private String targetPath;
+	// populated via processCommandLine():
 	private String usr;
 	private String pwd;
+	private String downloadPath = DownloadDirPath;
+	private String targetPath;
 	private boolean debug;
 
+	// populated via setupBrowser():
 	private WebDriver driver;
+
 
 	@SuppressWarnings("removal")
 	@Override
@@ -98,6 +101,8 @@ public class Download_NZZ
 		chromeOptionsMap.put("plugins.always_open_pdf_externally", true);
 		chromeOptions.setExperimentalOption("prefs", chromeOptionsMap);
 		// chromeOptions.addArguments("--remote-allow-origins=*");
+
+		// Create ChromeDriver.
 		driver = new ChromeDriver(chromeOptions);
 
 		// Navigate to the website.
@@ -105,7 +110,7 @@ public class Download_NZZ
 		driver.get(baseUrl);
 	}
 
-	void getRidOfNZZGarbage() throws Exception {
+	void getRidOfCookieGarbage() throws Exception {
 		// first popup: "We use Cookies and similar technologies..."
 		WebElement dataProtectionBlaBla = waitForAppearance("cmpboxWelcomeGDPR", 3);
 		if (dataProtectionBlaBla != null) {
@@ -416,6 +421,12 @@ public class Download_NZZ
 		for (Option opt: line.getOptions()) {
 			log.info("option {}: '{}'", (char)opt.getId(), opt.getValue());
 			switch (opt.getId()) {
+			case 'u':
+				this.usr = opt.getValue();
+				break;
+			case 'p':
+				this.pwd = opt.getValue();
+				break;
 			case 'd':
 				this.downloadPath = opt.getValue().replace('/', File.separatorChar);
 				if (this.downloadPath.endsWith("\"")) { // for some odd reason the trailing quote from the cmd-file makes in into the argument ||-(
@@ -427,12 +438,6 @@ public class Download_NZZ
 				if (this.targetPath.endsWith("\"")) { // for some odd reason the trailing quote from the cmd-file makes in into the argument ||-(
 					this.targetPath = this.targetPath.substring(0, this.targetPath.length()-1);
 				}
-				break;
-			case 'u':
-				this.usr = opt.getValue();
-				break;
-			case 'p':
-				this.pwd = opt.getValue();
 				break;
 			case 'x':
 				this.debug = !this.debug;
@@ -449,8 +454,13 @@ public class Download_NZZ
 
 	private static void usage(Options options, int exitCode) {
 		// automatically generate the help statement
-		HelpFormatter formatter = new HelpFormatter();
-		formatter.printHelp(100, "java -jar <jar.file> { <options> }.\n\n", "options are:", options, "");
+		HelpFormatter formatter = HelpFormatter.builder().get();
+		try {
+			formatter.printHelp( "java -jar <jar.file> { <options> }.\n\n", "download from NZZ newspaper", options, null, true);
+		} catch (Exception ex) {
+			log.error("Error printing usage", ex);
+		}
+
 		if (exitCode != 0) {
 			System.exit(exitCode);
 		}
@@ -458,11 +468,11 @@ public class Download_NZZ
 
 	private static Options createOptions() {
 		final Options options = new Options();
-		options.addOption(new Option("u", "username", true, "user-id for login to NZZ website [required]"));
-		options.addOption(new Option("p", "password", true, "password for login to NZZ website [required]"));
-		options.addOption(new Option("d", "download-folder", true, "download-folder [optional - default: '" + DownloadDirPath + "']"));
-		options.addOption(new Option("t", "target-folder", true, "target-folder [optional - default: same as download-folder]"));
-		options.addOption(new Option("x", "debug", true, "toggle debug mode (do not delete temp. files at exit, etc.)"));
+		options.addRequiredOption("u", "username", true, "user-id for login to NZZ website [required]");
+		options.addRequiredOption("p", "password", true, "password for login to NZZ website [required]");
+		options.addOption("d", "download-folder", true, "download-folder [optional - default: '" + DownloadDirPath + "']");
+		options.addOption("t", "target-folder", true, "target-folder [optional - default: same as download-folder]");
+		options.addOption("x", "debug", true, "toggle debug mode (do not delete temp. files at exit, etc.)");
 		return options;
 	}
 
@@ -490,7 +500,7 @@ public class Download_NZZ
 			Download_NZZ downloader = new Download_NZZ();
 			downloader.processCommandLine(line, options);
 			downloader.setUpBrowser();
-			downloader.getRidOfNZZGarbage();
+			downloader.getRidOfCookieGarbage();
 			downloader.login();
 			downloader.downloadEPaper();
 			downloader.closeBrowser();
