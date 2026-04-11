@@ -15,7 +15,9 @@ rem download location:
 set dst=Y:\Things to read\NZZ\rem download location:
 
 cd %tgt%
-java -jar "%jar%"
+rem Note - the "file:" is essential so that log4j can find its config:
+set log4j.configurationFile=file:log4j2.xml
+
 rem with short options:
 rem -u "<user-id here>" -p "<password here>" -t "%dst%"
 rem with spelled-out options:
