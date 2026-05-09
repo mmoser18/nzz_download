@@ -243,20 +243,22 @@ public class Download_NZZ
 			JavascriptExecutor js = (JavascriptExecutor)driver;
 			// wait until the file is downloaded:
 			final String baseQuery = "return document.querySelector('downloads-manager').shadowRoot.querySelector('#downloadsList downloads-item')";
-			final String query = baseQuery + ".shadowRoot.querySelector('div#content #file-link')";
+			final String query = baseQuery + ".shadowRoot.querySelector('div#content #fileLink')";
 			try {
 				// get the latest downloaded file's name:
 				nrAttempts = 0;
 				String fileName = null;
 				while (++nrAttempts < DownloadMaxWait) {
 					try {
-						fileName = (String)js.executeScript(query + ".text"); // get the latest downloaded file's name
+						fileName = (String)js.executeScript(query + ".title"); // get the latest downloaded file's name
 						if (fileName != null) {
 							break;
 						}
 					} catch (Exception ex) {
-						if (!ex.getMessage().contains("Cannot read properties of null (reading 'shadowRoot')")) { // this one is expected while the download is not complete, yet
-							log.info("Exception {}: {}", ex.getClass(), ex.getMessage());
+						if (ex.getMessage().contains("Cannot read properties of null (reading 'shadowRoot')")) { // this one is expected while the download is not complete, yet
+							log.trace("expected exception: " + ex.getMessage());
+						} else {
+							log.error(String.format("Exception %s: %s", ex.getClass(), ex.getMessage()), ex);
 						}
 					}
 					log.info("waiting ({})...", nrAttempts);
