@@ -170,25 +170,34 @@ public class Download_NZZ
 			}
 			if (frameDriver != null) {
 				WebElement loginUsr = waitForAppearance(By.xpath("//input[@name='email']"), 10);
-				WebElement loginPwd = waitForAppearance(By.xpath("//input[@type='password']"), 1);
-				WebElement anmeldenButton = waitForAppearance(By.className("prime"), 1);
 				if (loginUsr == null) {
 					throw new Exception("email entry-field not found");
-				}
-				if (loginPwd == null) {
-					throw new Exception("password entry-field not found");
-				}
-				if (anmeldenButton == null) {
-					throw new Exception("Anmelden-button not found");
 				}
 				// filling out the login form:
 				Thread.sleep(250); // had to introduce this since the page reacted slowly and swallowed some of the entry...
 				log.info("entering user-id: '{}'", usr);
 				typeSlowly(loginUsr, usr); // the input was only partially accepted when typing full speed... ||-(
-				Thread.sleep(250); // had to introduce this since the page reacted slowly and swallowed some of the entry...
+
+				WebElement weiterButton = waitForAppearance(By.className("prime"), 1);
+				if (weiterButton != null) {
+					weiterButton.click();
+					Thread.sleep(250);
+				} else {
+					log.info("No button 'Weiter' found.");
+				}
+
+				WebElement loginPwd = waitForAppearance(By.xpath("//input[@type='password']"), 1);
+				if (loginPwd == null) {
+					throw new Exception("password entry-field not found");
+				}
 				log.info("entering password: '{}'", pwd);
 				typeSlowly(loginPwd, pwd); // the input was only partially accepted when typing full speed... ||-(
 				Thread.sleep(250);
+
+				WebElement anmeldenButton = waitForAppearance(By.className("prime"), 1);
+				if (anmeldenButton == null) {
+					throw new Exception("Anmelden-button not found");
+				}
 				log.info("clicking '{}':", anmeldenButton);
 				anmeldenButton.click();
 				log.info("we should be logged-in now...");
